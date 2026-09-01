@@ -71,8 +71,9 @@ export function useComicImporter(onImportCompleted?: () => void) {
         };
 
         const payload: WorkerInputPayload = {
-          action: "EXTRACT_METADATA",
-          file: file,
+action: "EXTRACT_METADATA",
+          buffer: buffer,
+          fileName: file.name,
                };
 
         // Transferimos el buffer para consumo de memoria 0 en el hilo principal
