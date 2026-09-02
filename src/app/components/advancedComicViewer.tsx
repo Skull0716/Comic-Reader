@@ -296,154 +296,125 @@ export default function AdvancedComicViewer({
       className="relative flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden"
       onMouseMove={revealUI}
     >
-{/* Header Superior Limpio y sin Recortes */}
-      <header
-        className={`absolute top-0 left-0 right-0 z-50 px-2 sm:px-4 py-2 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800 transition-transform duration-300 ease-in-out select-none ${
-          showUI ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
-        }`}
-        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+{/* Header Responsive Pulido */}
+<header
+  className={`absolute top-0 left-0 right-0 z-50 px-3 md:px-8 py-2 md:py-3 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800 transition-transform duration-300 ease-in-out select-none ${
+    showUI ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
+  }`}
+  style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+>
+  <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto w-full">
+    {/* Izquierda: Volver y Modo con etiquetas legibles en PC */}
+    <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">
+      <button
+        onClick={onClose}
+        aria-label="Volver a la biblioteca"
+        className="p-2 md:px-3 md:py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-200 text-xs font-medium transition flex items-center gap-2 cursor-pointer"
       >
-        <div className="flex items-center justify-between gap-1 w-full max-w-7xl mx-auto">
-          {/* Lado Izquierdo: Salir y Modos */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={onClose}
-              aria-label="Volver a la biblioteca"
-              className="p-2 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition shrink-0"
-            >
-              <ArrowLeft size={16} />
-            </button>
+        <ArrowLeft size={16} />
+        <span className="hidden md:inline">Biblioteca</span>
+      </button>
 
-            <button
-              onClick={toggleMode}
-              aria-label="Cambiar modo"
-              className="p-2 sm:px-2.5 sm:py-1.5 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition flex items-center gap-1.5 shrink-0"
-            >
-              {mode === "double" && <BookOpen size={16} />}
-              {mode === "single" && <FileText size={16} />}
-              {mode === "webtoon" && <Scroll size={16} />}
-              <span className="hidden md:inline text-xs font-medium">
-                {mode === "double" ? "Doble" : mode === "single" ? "1 Pág" : "Webtoon"}
-              </span>
-            </button>
+      <button
+        onClick={toggleMode}
+        aria-label="Cambiar modo"
+        className="p-2 md:px-3 md:py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-200 text-xs font-medium transition flex items-center gap-2 cursor-pointer"
+      >
+        {mode === "double" && <BookOpen size={16} />}
+        {mode === "single" && <FileText size={16} />}
+        {mode === "webtoon" && <Scroll size={16} />}
+        <span className="hidden md:inline">
+          {mode === "double" ? "Doble Página" : mode === "single" ? "1 Página" : "Cascada Webtoon"}
+        </span>
+      </button>
 
-            {mode !== "webtoon" && (
-              <button
-                onClick={() => setDirection((d) => (d === "ltr" ? "rtl" : "ltr"))}
-                aria-label="Dirección de lectura"
-                className={`px-2 py-1.5 rounded-lg border text-[11px] font-mono font-bold transition shrink-0 ${
-                  direction === "rtl"
-                    ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                    : "bg-neutral-900 text-neutral-400 border-neutral-800"
-                }`}
-              >
-                {direction.toUpperCase()}
-              </button>
-            )}
-          </div>
+      {mode !== "webtoon" && (
+        <button
+          onClick={() => setDirection((d) => (d === "ltr" ? "rtl" : "ltr"))}
+          aria-label="Dirección de lectura"
+          className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+            direction === "rtl"
+              ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+              : "bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800"
+          }`}
+        >
+          <ArrowLeftRight size={14} />
+          <span className="md:hidden text-[11px] font-mono">{direction.toUpperCase()}</span>
+          <span className="hidden md:inline">{direction === "rtl" ? "Manga (RTL)" : "Occidental (LTR)"}</span>
+        </button>
+      )}
+    </div>
 
-          {/* Bloque Central: Contador de páginas */}
-          <div className="text-center font-mono text-xs text-neutral-400 truncate px-2 min-w-0">
-            {mode === "webtoon" ? (
-              <span>
-                <strong className="text-neutral-100">{activeWebtoonPage + 1}</strong>/{pages.length}
-              </span>
-            ) : (
-              <span>
-                <strong className="text-neutral-100">
-                  {(currentSpread?.indices || [0]).map((i) => i + 1).join("-")}
-                </strong>
-                /{pages.length}
-              </span>
-            )}
-          </div>
+    {/* Centro: Indicador de Páginas destacado */}
+    <div className="text-center font-mono text-xs md:text-sm text-neutral-400 truncate px-2 min-w-0">
+      {mode === "webtoon" ? (
+        <span>
+          Pág. <strong className="text-neutral-100 font-semibold">{activeWebtoonPage + 1}</strong> / {pages.length}
+        </span>
+      ) : (
+        <span>
+          Pág.{" "}
+          <strong className="text-neutral-100 font-semibold">
+            {(currentSpread?.indices || [0]).map((i) => i + 1).join(" - ")}
+          </strong>{" "}
+          / {pages.length}
+          <span className="ml-2 text-xs text-neutral-500 hidden lg:inline">
+            (Pliego {spreadIndex + 1}/{totalSpreads})
+          </span>
+        </span>
+      )}
+    </div>
 
-          {/* Lado Derecho: En PC se ven completos, en móvil se compacta a Marcador rápido */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={handleToggleBookmark}
-              aria-label="Guardar marcador"
-              className={`p-2 rounded-lg border transition shrink-0 ${
-                isCurrentPageBookmarked
-                  ? "bg-indigo-600 text-white border-indigo-500"
-                  : "bg-neutral-900 active:bg-neutral-800 border-neutral-800 text-neutral-300"
-              }`}
-            >
-              <Bookmark size={16} className={isCurrentPageBookmarked ? "fill-white" : ""} />
-            </button>
-
-            {/* En pantallas de tablet/PC se muestran los demás botones arriba */}
-            <div className="hidden sm:flex items-center gap-1">
-              <button
-                onClick={() => setShowFilterModal(!showFilterModal)}
-                aria-label="Filtros"
-                className={`p-2 rounded-lg border transition ${
-                  filters.preset !== "normal" || filters.brightness !== 100 || filters.contrast !== 100
-                    ? "bg-indigo-600 text-white border-indigo-500"
-                    : "bg-neutral-900 active:bg-neutral-800 border-neutral-800 text-neutral-300"
-                }`}
-              >
-                <Sliders size={16} />
-              </button>
-
-              <button
-                onClick={() => setShowBookmarksDrawer(true)}
-                aria-label="Marcadores"
-                className="p-2 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition"
-              >
-                <List size={16} />
-              </button>
-
-              <button
-                onClick={toggleFullscreen}
-                aria-label="Pantalla completa"
-                className="p-2 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition"
-              >
-                {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Dock Inferior Exclusivo para Móviles (Aparece junto con la UI) */}
-      <div
-        className={`sm:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-950/90 border border-neutral-800 shadow-2xl backdrop-blur-md transition-all duration-300 ${
-          showUI ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0 pointer-events-none"
+    {/* Derecha: Herramientas completas en Desktop */}
+    <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+      <button
+        onClick={handleToggleBookmark}
+        title="Marcar página actual"
+        className={`p-2 md:px-2.5 md:py-1.5 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer ${
+          isCurrentPageBookmarked
+            ? "bg-indigo-600 text-white border-indigo-500"
+            : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-300"
         }`}
       >
+        <Bookmark size={16} className={isCurrentPageBookmarked ? "fill-white" : ""} />
+        <span className="hidden lg:inline">{isCurrentPageBookmarked ? "Marcado" : "Marcar"}</span>
+      </button>
+
+      {/* Herramientas exclusivas para pantallas medianas/grandes */}
+      <div className="hidden sm:flex items-center gap-1.5 md:gap-2">
         <button
           onClick={() => setShowFilterModal(!showFilterModal)}
-          aria-label="Filtros"
-          className={`p-2 rounded-full transition ${
+          title="Filtros de imagen"
+          className={`p-2 md:px-2.5 md:py-1.5 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 cursor-pointer ${
             filters.preset !== "normal" || filters.brightness !== 100 || filters.contrast !== 100
-              ? "bg-indigo-600 text-white"
-              : "text-neutral-400 hover:text-white"
+              ? "bg-indigo-600 text-white border-indigo-500"
+              : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-300"
           }`}
         >
           <Sliders size={16} />
+          <span className="hidden md:inline">Filtros</span>
         </button>
-
-        <div className="w-[1px] h-4 bg-neutral-800" />
 
         <button
           onClick={() => setShowBookmarksDrawer(true)}
-          aria-label="Ver marcadores"
-          className="p-2 rounded-full text-neutral-400 hover:text-white transition"
+          title="Ver marcadores y notas"
+          className="p-2 md:px-2.5 md:py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
         >
           <List size={16} />
+          <span className="hidden md:inline">Índice</span>
         </button>
-
-        <div className="w-[1px] h-4 bg-neutral-800" />
 
         <button
           onClick={toggleFullscreen}
-          aria-label="Pantalla completa"
-          className="p-2 rounded-full text-neutral-400 hover:text-white transition"
+          title="Pantalla Completa (F)"
+          className="p-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 transition cursor-pointer"
         >
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
       </div>
+    </div>
+  </div>
+</header>
 
       {/* Modal de Filtros */}
       {showFilterModal && (
