@@ -108,14 +108,14 @@ export default function LibraryView({ onSelectComic }: Props) {
     }
   }, [loadComicsData, revokePreviousUrls]);
 
-  // Carga inicial garantizada
+// 1. Carga inicial: Solo se ejecuta UNA vez al montar el componente ([] de dependencias)
   useEffect(() => {
-    let isSubscribed = true;
+    let isMounted = true;
 
     async function init() {
       try {
         const { comics: initialComics, urls: initialUrls } = await loadComicsData();
-        if (isSubscribed) {
+        if (isMounted) {
           coverUrlsRef.current = initialUrls;
           setCoverUrls(initialUrls);
           setComics(initialComics);
@@ -125,7 +125,7 @@ export default function LibraryView({ onSelectComic }: Props) {
       } catch (err) {
         console.error("Error al inicializar la biblioteca:", err);
       } finally {
-        if (isSubscribed) {
+        if (isMounted) {
           setIsLoadingLibrary(false);
         }
       }
@@ -134,24 +134,26 @@ export default function LibraryView({ onSelectComic }: Props) {
     init();
 
     return () => {
-      isSubscribed = false;
+      isMounted = false;
       revokePreviousUrls();
     };
-  }, [loadComicsData, revokePreviousUrls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Referencia para rastrear qué descargas ya refrescaron la biblioteca
+  // 2. Listener de descargas blindado contra re-renders infinitos
   const processedCompletedIdsRef = useRef<Set<string>>(new Set());
 
-  // Recargar la biblioteca únicamente cuando se complete una NUEVA descarga
   useEffect(() => {
-    const completedTasks = tasks.filter((t) => t.status === "completed");
-    const newCompletedTasks = completedTasks.filter(
-      (t) => !processedCompletedIdsRef.current.has(t.id)
+    if (!tasks || tasks.length === 0) return;
+
+    // Solo reaccionar si hay IDs completados que NO hayamos procesado antes
+    const newlyCompleted = tasks.filter(
+      (t) => t.status === "completed" && !processedCompletedIdsRef.current.has(t.id)
     );
 
-    if (newCompletedTasks.length === 0) return;
+    if (newlyCompleted.length === 0) return;
 
-    newCompletedTasks.forEach((t) => processedCompletedIdsRef.current.add(t.id));
+    newlyCompleted.forEach((t) => processedCompletedIdsRef.current.add(t.id));
     refreshLibrary();
   }, [tasks, refreshLibrary]);
 

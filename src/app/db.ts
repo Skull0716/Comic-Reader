@@ -47,12 +47,20 @@ export interface ComicDBSchema extends DBSchema {
 const DB_NAME = "comic-reader-db";
 const DB_VERSION = 3;
 
+// Helper para evitar bloqueos infinitos en navegadores móviles
+function withTimeout<T>(promise: Promise<T>, ms = 3000, errorMsg = "IndexedDB Timeout"): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms)),
+  ]);
+}
+
 // Singleton para mantener una sola conexión abierta y no saturar IndexedDB
 let dbPromise: Promise<IDBPDatabase<ComicDBSchema>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<ComicDBSchema>> {
   if (!dbPromise) {
-    dbPromise = openDB<ComicDBSchema>(DB_NAME, DB_VERSION, {
+    const connectionPromise = openDB<ComicDBSchema>(DB_NAME, DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("comics")) {
           const comicStore = db.createObjectStore("comics", { keyPath: "id" });
@@ -88,14 +96,15 @@ export function getDB(): Promise<IDBPDatabase<ComicDBSchema>> {
         console.warn("[IndexedDB] Conexión terminada inesperadamente por el navegador.");
         dbPromise = null;
       },
-    }).catch((err: unknown) => {
+    });
+
+    dbPromise = withTimeout(connectionPromise, 3000, "IndexedDB connection timeout").catch((err: unknown) => {
       dbPromise = null;
       throw err;
     });
   }
 
   return dbPromise;
-
 }
 
 /* ==========================================================================
@@ -115,10 +124,10 @@ export async function getComicById(id: string): Promise<ComicRecord | undefined>
 export async function getAllComics(): Promise<ComicRecord[]> {
   try {
     const db = await getDB();
-    const comics = await db.getAllFromIndex("comics", "by-date");
+    const comics = await withTimeout(db.getAllFromIndex("comics", "by-date"), 3000);
     return comics || [];
   } catch (error) {
-    console.error("[IndexedDB] Error al obtener todos los cómics:", error);
+    console.error("[IndexedDB] Error al obtener todos los cómics o timeout:", error);
     return [];
   }
 }

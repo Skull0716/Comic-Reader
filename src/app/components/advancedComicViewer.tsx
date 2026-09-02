@@ -296,119 +296,117 @@ export default function AdvancedComicViewer({
       className="relative flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden"
       onMouseMove={revealUI}
     >
-      {/* Header */}
+{/* Header Responsivo Blindado */}
       <header
-        className={`absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-2.5 bg-neutral-950/85 backdrop-blur-md border-b border-neutral-800 transition-transform duration-300 ease-in-out ${
+        className={`absolute top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800 transition-transform duration-300 ease-in-out select-none ${
           showUI ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
         }`}
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
       >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-xs font-semibold text-neutral-200 transition cursor-pointer"
-          >
-            <ArrowLeft size={15} />
-            <span className="hidden sm:inline">Biblioteca</span>
-          </button>
-
-          <button
-            onClick={toggleMode}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs font-semibold transition cursor-pointer"
-          >
-            {mode === "double" && <BookOpen size={15} />}
-            {mode === "single" && <FileText size={15} />}
-            {mode === "webtoon" && <Scroll size={15} />}
-            <span>
-              {mode === "double" && "Doble Página"}
-              {mode === "single" && "1 Página"}
-              {mode === "webtoon" && "Webtoon"}
-            </span>
-          </button>
-
-          {mode !== "webtoon" && (
+        <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
+          {/* Lado Izquierdo: Salir y Modo */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
-              onClick={() => setDirection((d) => (d === "ltr" ? "rtl" : "ltr"))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                direction === "rtl"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                  : "bg-neutral-900 hover:bg-neutral-800"
+              onClick={onClose}
+              title="Volver a la Biblioteca"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition flex items-center gap-1.5"
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline text-xs font-medium">Biblioteca</span>
+            </button>
+
+            <button
+              onClick={toggleMode}
+              title="Cambiar modo de vista"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition flex items-center gap-1.5"
+            >
+              {mode === "double" && <BookOpen size={16} />}
+              {mode === "single" && <FileText size={16} />}
+              {mode === "webtoon" && <Scroll size={16} />}
+              <span className="hidden md:inline text-xs font-medium">
+                {mode === "double" ? "Doble" : mode === "single" ? "1 Pág" : "Cascada"}
+              </span>
+            </button>
+
+            {/* Dirección RTL/LTR (Visible directo en desktop, en móvil se compacta a pastilla) */}
+            {mode !== "webtoon" && (
+              <button
+                onClick={() => setDirection((d) => (d === "ltr" ? "rtl" : "ltr"))}
+                title="Cambiar dirección de lectura"
+                className={`p-2 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 ${
+                  direction === "rtl"
+                    ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                    : "bg-neutral-900 text-neutral-400 border-neutral-800"
+                }`}
+              >
+                <ArrowLeftRight size={14} />
+                <span className="text-[11px] uppercase font-mono">{direction}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Centro: Indicador de Páginas */}
+          <div className="text-[11px] sm:text-xs font-mono text-neutral-400 text-center truncate px-1 shrink min-w-0">
+            {mode === "webtoon" ? (
+              <span>
+                <strong className="text-neutral-100">{activeWebtoonPage + 1}</strong>/{pages.length}
+              </span>
+            ) : (
+              <span>
+                <strong className="text-neutral-100">
+                  {(currentSpread?.indices || [0]).map((i) => i + 1).join("-")}
+                </strong>
+                /{pages.length}
+              </span>
+            )}
+          </div>
+
+          {/* Lado Derecho: Herramientas esenciales */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Guardar marcador */}
+            <button
+              onClick={handleToggleBookmark}
+              title="Marcar página"
+              className={`p-2 rounded-lg border transition ${
+                isCurrentPageBookmarked
+                  ? "bg-indigo-600 text-white border-indigo-500"
+                  : "bg-neutral-900 active:bg-neutral-800 border-neutral-800 text-neutral-300"
               }`}
             >
-              <ArrowLeftRight size={15} />
-              <span>{direction === "rtl" ? "Manga (RTL)" : "Occidental (LTR)"}</span>
+              <Bookmark size={16} className={isCurrentPageBookmarked ? "fill-white" : ""} />
             </button>
-          )}
-        </div>
 
-        {/* Indicador de Páginas */}
-        <div className="text-xs sm:text-sm font-medium text-neutral-400">
-          {mode === "webtoon" ? (
-            <>
-              Pág. <strong className="text-neutral-100">{activeWebtoonPage + 1}</strong> / {pages.length}
-            </>
-          ) : (
-            <>
-              Pág.{" "}
-              <strong className="text-neutral-100">
-                {(currentSpread?.indices || [0]).map((i) => i + 1).join(" - ")}
-              </strong>{" "}
-              / {pages.length}
-              <span className="ml-2 text-xs text-neutral-500 hidden md:inline">
-                (Pliego {spreadIndex + 1}/{totalSpreads})
-              </span>
-            </>
-          )}
-        </div>
+            {/* Ver lista de marcadores */}
+            <button
+              onClick={() => setShowBookmarksDrawer(true)}
+              title="Ver marcadores"
+              className="p-2 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition"
+            >
+              <List size={16} />
+            </button>
 
-        {/* Herramientas */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleToggleBookmark}
-            title="Marcar página actual"
-            className={`p-2 rounded-lg text-xs transition cursor-pointer ${
-              isCurrentPageBookmarked
-                ? "bg-indigo-600 text-white"
-                : "bg-neutral-900 hover:bg-neutral-800 text-neutral-300"
-            }`}
-          >
-            <Bookmark size={16} className={isCurrentPageBookmarked ? "fill-white" : ""} />
-          </button>
+            {/* Filtros de imagen */}
+            <button
+              onClick={() => setShowFilterModal(!showFilterModal)}
+              title="Filtros"
+              className={`p-2 rounded-lg border transition flex items-center gap-1 ${
+                filters.preset !== "normal" || filters.brightness !== 100 || filters.contrast !== 100
+                  ? "bg-indigo-600 text-white border-indigo-500"
+                  : "bg-neutral-900 active:bg-neutral-800 border-neutral-800 text-neutral-300"
+              }`}
+            >
+              <Sliders size={16} />
+            </button>
 
-          <button
-            onClick={() => setShowBookmarksDrawer(true)}
-            title="Ver marcadores y notas"
-            className="p-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 transition cursor-pointer"
-          >
-            <List size={16} />
-          </button>
-
-          <button
-            onClick={() => setShowFilterModal(!showFilterModal)}
-            className={`p-2 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer ${
-              filters.preset !== "normal" || filters.brightness !== 100 || filters.contrast !== 100
-                ? "bg-indigo-600 text-white"
-                : "bg-neutral-900 hover:bg-neutral-800 text-neutral-300"
-            }`}
-          >
-            <Sliders size={16} />
-            <span className="hidden sm:inline">Filtros</span>
-          </button>
-
-          <button
-            onClick={toggleUI}
-            title="Ocultar interfaz (Z)"
-            className="p-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 transition cursor-pointer"
-          >
-            {showUI ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-
-          <button
-            onClick={toggleFullscreen}
-            title="Pantalla Completa (F)"
-            className="p-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 transition cursor-pointer"
-          >
-            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-          </button>
+            {/* Pantalla completa (oculta en móviles para no saturar) */}
+            <button
+              onClick={toggleFullscreen}
+              title="Pantalla Completa"
+              className="hidden sm:inline-flex p-2 rounded-lg bg-neutral-900 active:bg-neutral-800 border border-neutral-800 text-neutral-300 transition"
+            >
+              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            </button>
+          </div>
         </div>
       </header>
 
