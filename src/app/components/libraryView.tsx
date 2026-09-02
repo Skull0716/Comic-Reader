@@ -235,62 +235,64 @@ export default function LibraryView({ onSelectComic }: Props) {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-8 select-text">
-      {/* Barra superior */}
-      <div className="max-w-7xl mx-auto flex items-center justify-between pb-6 border-b border-neutral-800">
+{/* Barra superior Mobile-First */}
+      <div className="max-w-7xl mx-auto flex flex-col gap-4 pb-4 sm:pb-6 border-b border-neutral-800">
+        {/* Fila 1: Título y contador */}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Mi Biblioteca</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Mi Biblioteca</h1>
+          <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
             {isLoadingLibrary
               ? "Cargando biblioteca..."
               : `${comics.length} ${comics.length === 1 ? "título disponible" : "títulos disponibles"}`}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-{/* Botón Descubrir (Destacado) */}
-<button
-  onClick={() => setShowArchiveModal(true)}
-  title="Explorar y descargar cómics gratuitos desde Internet Archive"
-  className="group relative flex items-center gap-2 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-600/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 hover:border-amber-400/80 text-amber-200 hover:text-amber-100 px-3.5 py-2 rounded-xl font-medium text-sm transition-all duration-200 shadow-lg shadow-amber-500/10 cursor-pointer active:scale-95"
->
-  <Sparkles size={16} className="text-amber-400 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
-  <span className="font-semibold tracking-wide">Descubrir</span>
-</button>
+        {/* Fila 2: Barra de acciones con scroll lateral suave si no cabe */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0">
+          {/* Botón Descubrir (Destacado) */}
+          <button
+            onClick={() => setShowArchiveModal(true)}
+            title="Explorar y descargar cómics gratuitos"
+            className="group relative flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-600/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-200 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition active:scale-95 cursor-pointer shadow-sm"
+          >
+            <Sparkles size={15} className="text-amber-400 shrink-0" />
+            <span>Descubrir</span>
+          </button>
 
           {/* Botón Explorar OPDS */}
           <button
             onClick={() => setShowOPDSSettingsModal(true)}
-            title="Configurar y explorar servidores OPDS (Komga/Kavita)"
-            className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-3.5 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer"
+            title="Configurar y explorar servidores OPDS"
+            className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium shrink-0 transition cursor-pointer"
           >
-            <Server size={18} className="text-indigo-400" />
-            <span className="hidden sm:inline">OPDS</span>
+            <Server size={16} className="text-indigo-400 shrink-0" />
+            <span className="hidden xs:inline sm:inline">OPDS</span>
           </button>
 
           {/* Botón Memoria */}
           <button
             onClick={() => setShowStorageModal(true)}
             title="Uso de almacenamiento y memoria"
-            className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-3.5 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium shrink-0 transition cursor-pointer"
           >
-            <HardDrive size={18} className="text-indigo-400" />
-            <span className="hidden sm:inline">Memoria</span>
+            <HardDrive size={16} className="text-indigo-400 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Memoria</span>
           </button>
 
           {/* Botón Respaldo */}
           <button
             onClick={() => setShowBackupModal(true)}
             title="Copia de seguridad y restauración"
-            className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-3.5 py-2 rounded-lg font-medium text-sm transition shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium shrink-0 transition cursor-pointer"
           >
-            <ShieldCheck size={18} className="text-emerald-400" />
-            <span className="hidden sm:inline">Respaldos</span>
+            <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Respaldos</span>
           </button>
 
           {/* Botón Añadir Cómics */}
-          <label className="flex items-center gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium text-sm transition shadow-md">
-            <Plus size={18} />
-            <span>{importing ? "Importando..." : "Añadir cómics"}</span>
+          <label className="flex items-center gap-1.5 cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition shadow-md active:scale-95">
+            <Plus size={16} className="shrink-0" />
+            <span>{importing ? "..." : "Añadir"}</span>
             <input
               type="file"
               multiple
