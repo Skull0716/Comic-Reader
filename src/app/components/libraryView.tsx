@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { getAllComics, saveComic, ComicRecord } from "../db";
 import { extractMetadata } from "../extractCover";
 import { extractComicInfo } from "../parseComicInfo";
+import { pullRemoteProgress, flushSyncQueue } from "../syncService";
 import {
   Plus,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   HardDrive,
   Server,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import BackupModal from "./BackupModal";
 import SearchFilterBar from "./searchFilterBar";
@@ -49,6 +51,7 @@ export default function LibraryView({ onSelectComic }: Props) {
   const [comics, setComics] = useState<ComicRecord[]>([]);
   const [coverUrls, setCoverUrls] = useState<Record<string, string>>({});
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [importing, setImporting] = useState(false);
 
   // Filtros y búsqueda
@@ -70,7 +73,7 @@ export default function LibraryView({ onSelectComic }: Props) {
     coverUrlsRef.current = {};
   }, []);
 
-// Consulta de la BD y generación segura de ObjectURLs
+  // Consulta de la BD y generación segura de ObjectURLs
   const loadComicsData = useCallback(async () => {
     try {
       const data = await getAllComics();
@@ -93,7 +96,7 @@ export default function LibraryView({ onSelectComic }: Props) {
     }
   }, []);
 
-  // Función para recargar la biblioteca tras importar, descargar o borrar
+  // Función para recargar la biblioteca tras importar, descargar o sincronizar
   const refreshLibrary = useCallback(async () => {
     try {
       const { comics: newComics, urls: newUrls } = await loadComicsData();
@@ -108,7 +111,7 @@ export default function LibraryView({ onSelectComic }: Props) {
     }
   }, [loadComicsData, revokePreviousUrls]);
 
-// 1. Carga inicial: Solo se ejecuta UNA vez al montar el componente ([] de dependencias)
+  // 1. Carga inicial local (IndexedDB)
   useEffect(() => {
     let isMounted = true;
 
@@ -137,16 +140,51 @@ export default function LibraryView({ onSelectComic }: Props) {
       isMounted = false;
       revokePreviousUrls();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadComicsData, revokePreviousUrls]);
 
-  // 2. Listener de descargas blindado contra re-renders infinitos
+  // 2. Sincronización en segundo plano con Supabase + Manejo de reconexión online
+  useEffect(() => {
+    let isSubscribed = true;
+
+    async function runSyncCycle() {
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      if (!isSubscribed) return;
+
+      setIsSyncing(true);
+      try {
+        const hasRemoteUpdates = await pullRemoteProgress();
+        if (hasRemoteUpdates && isSubscribed) {
+          await refreshLibrary();
+        }
+        await flushSyncQueue();
+      } catch (err) {
+        console.warn("[Sync] Error en ciclo de sincronización de biblioteca:", err);
+      } finally {
+        if (isSubscribed) setIsSyncing(false);
+      }
+    }
+
+    // Ejecuta al montar
+    runSyncCycle();
+
+    // Reintenta cuando vuelva la conexión
+    const handleOnline = () => {
+      runSyncCycle();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [refreshLibrary]);
+
+  // 3. Listener de descargas blindado contra re-renders infinitos
   const processedCompletedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
 
-    // Solo reaccionar si hay IDs completados que NO hayamos procesado antes
     const newlyCompleted = tasks.filter(
       (t) => t.status === "completed" && !processedCompletedIdsRef.current.has(t.id)
     );
@@ -157,10 +195,8 @@ export default function LibraryView({ onSelectComic }: Props) {
     refreshLibrary();
   }, [tasks, refreshLibrary]);
 
-  // 1. Agrupar por series
+  // Agrupar por series y filtrar
   const groups = useMemo(() => groupComicsIntoSeries(comics), [comics]);
-
-  // 2. Filtrar y ordenar
   const filteredGroups = useFilteredLibrary(groups, filters);
 
   const handleImportFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,6 +232,7 @@ export default function LibraryView({ onSelectComic }: Props) {
           totalPages,
           currentPage: 0,
           addedAt: timestamp,
+          updatedAt: timestamp,
           metadata: comicInfo || undefined,
         };
         await saveComic(newComic);
@@ -235,21 +272,31 @@ export default function LibraryView({ onSelectComic }: Props) {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6 md:p-8 select-text">
-{/* Barra superior Mobile-First */}
+      {/* Barra superior Mobile-First */}
       <div className="max-w-7xl mx-auto flex flex-col gap-4 pb-4 sm:pb-6 border-b border-neutral-800">
         {/* Fila 1: Título y contador */}
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Mi Biblioteca</h1>
-          <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
-            {isLoadingLibrary
-              ? "Cargando biblioteca..."
-              : `${comics.length} ${comics.length === 1 ? "título disponible" : "títulos disponibles"}`}
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Mi Biblioteca</h1>
+            <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
+              {isLoadingLibrary
+                ? "Cargando biblioteca..."
+                : `${comics.length} ${comics.length === 1 ? "título disponible" : "títulos disponibles"}`}
+            </p>
+          </div>
+
+          {/* Indicador de sincronización en segundo plano */}
+          {isSyncing && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-900 border border-neutral-800 text-neutral-400 text-xs rounded-full animate-pulse">
+              <RefreshCw size={12} className="animate-spin text-indigo-400" />
+              <span className="hidden sm:inline">Sincronizando</span>
+            </div>
+          )}
         </div>
 
-        {/* Fila 2: Barra de acciones con scroll lateral suave si no cabe */}
+        {/* Fila 2: Barra de acciones */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0">
-          {/* Botón Descubrir (Destacado) */}
+          {/* Botón Descubrir */}
           <button
             onClick={() => setShowArchiveModal(true)}
             title="Explorar y descargar cómics gratuitos"
@@ -316,7 +363,7 @@ export default function LibraryView({ onSelectComic }: Props) {
         </div>
       )}
 
-{/* Grid de Cómics / Estados de Carga */}
+      {/* Grid de Cómics / Estados de Carga */}
       <div className="max-w-7xl mx-auto mt-8">
         {isLoadingLibrary ? (
           <div className="flex flex-col items-center justify-center h-64 text-neutral-500 gap-3">
@@ -360,18 +407,22 @@ export default function LibraryView({ onSelectComic }: Props) {
       </div>
 
       {/* Modal de Detalles */}
-      {selectedComicDetails && (
-        <ComicDetailsModal
-          comic={selectedComicDetails}
-          coverUrl={coverUrls[selectedComicDetails.id]}
-          onClose={() => setSelectedComicDetails(null)}
-          onRead={(comic) => {
-            setSelectedComicDetails(null);
-            onSelectComic(comic);
-          }}
-          onDeleted={refreshLibrary}
-        />
-      )}
+{selectedComicDetails && (
+  <ComicDetailsModal
+    comic={
+      // Buscamos la versión más reciente del cómic en el array actualizado
+      comics.find((c) => c.id === selectedComicDetails.id) || selectedComicDetails
+    }
+    coverUrl={coverUrls[selectedComicDetails.id]}
+    onClose={() => setSelectedComicDetails(null)}
+    onRead={(comic) => {
+      setSelectedComicDetails(null);
+      onSelectComic(comic);
+    }}
+    onDeleted={refreshLibrary}
+    onUpdate={refreshLibrary} // <--- Agrega esta línea
+  />
+)}
 
       {/* Modal Descubrir Cómics Libres */}
       <ArchiveExplorerModal
@@ -399,7 +450,7 @@ export default function LibraryView({ onSelectComic }: Props) {
         />
       )}
 
-      {/* Indicador de importación */}
+      {/* Indicador flotante de importación */}
       {importing && (
         <aside
           aria-live="polite"

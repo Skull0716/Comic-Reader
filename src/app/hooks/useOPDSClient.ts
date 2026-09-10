@@ -30,7 +30,10 @@ export function useOPDSClient(server: OPDSServerConfig) {
           }),
         });
 
-        if (!res.ok) throw new Error("No se pudo conectar con el feed OPDS");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `Error ${res.status}: No se pudo conectar con el feed OPDS`);
+        }
         const xml = await res.text();
         const parsed = parseOPDSXml(xml, url);
 

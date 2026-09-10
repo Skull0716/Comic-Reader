@@ -17,8 +17,17 @@ export interface ComicRecord {
   addedAt: number;                      // Timestamp de importación
   lastReadAt?: number;                  // Timestamp de última lectura
   isFavorite?: boolean;                 // Marcador de favorito
+  updatedAt?: number;                   // Timestamp para resolución de conflictos (Supabase)
   metadata?: ComicMetadata;             // Metadatos enriquecidos de ComicInfo.xml
   filterSettings?: ImageFilterSettings; // Preferencias visuales guardadas
+}
+
+export interface PendingSyncItem {
+  id?: number;
+  comicId: string;
+  currentPage: number;
+  isFavorite: boolean;
+  updatedAt: number;
 }
 
 export interface ComicDBSchema extends DBSchema {
@@ -42,26 +51,26 @@ export interface ComicDBSchema extends DBSchema {
     value: ComicAnnotation;
     indexes: { "by-comic": string };
   };
+  sync_queue: {
+    key: number;
+    value: PendingSyncItem;
+    indexes: { "by-comic": string };
+  };
 }
 
 const DB_NAME = "comic-reader-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4; // Incrementado para registrar el store sync_queue
 
-// Helper para evitar bloqueos infinitos en navegadores móviles
-function withTimeout<T>(promise: Promise<T>, ms = 3000, errorMsg = "IndexedDB Timeout"): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms)),
-  ]);
-}
-
-// Singleton para mantener una sola conexión abierta y no saturar IndexedDB
 let dbPromise: Promise<IDBPDatabase<ComicDBSchema>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<ComicDBSchema>> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("IndexedDB no está disponible en el servidor."));
+  }
+
   if (!dbPromise) {
-    const connectionPromise = openDB<ComicDBSchema>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+    dbPromise = openDB<ComicDBSchema>(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains("comics")) {
           const comicStore = db.createObjectStore("comics", { keyPath: "id" });
           comicStore.createIndex("by-date", "addedAt");
@@ -81,24 +90,32 @@ export function getDB(): Promise<IDBPDatabase<ComicDBSchema>> {
           const annotationStore = db.createObjectStore("annotations", { keyPath: "id" });
           annotationStore.createIndex("by-comic", "comicId");
         }
+
+        // Migración: Cola de mutaciones offline
+        if (!db.objectStoreNames.contains("sync_queue")) {
+          const syncStore = db.createObjectStore("sync_queue", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          syncStore.createIndex("by-comic", "comicId");
+        }
       },
       blocked() {
-        console.warn("[IndexedDB] Conexión en espera: otra pestaña tiene abierta una versión anterior.");
+        console.warn("[IndexedDB] Actualización bloqueada: cierra otras pestañas de la app.");
       },
       blocking() {
-        console.warn("[IndexedDB] Cerrando conexión obsoleta para permitir recarga limpia.");
+        console.warn("[IndexedDB] Conexión cerrada para permitir la actualización de versión.");
         if (dbPromise) {
           dbPromise.then((db) => db.close()).catch(() => {});
           dbPromise = null;
         }
       },
       terminated() {
-        console.warn("[IndexedDB] Conexión terminada inesperadamente por el navegador.");
+        console.warn("[IndexedDB] Conexión terminada inesperadamente.");
         dbPromise = null;
       },
-    });
-
-    dbPromise = withTimeout(connectionPromise, 3000, "IndexedDB connection timeout").catch((err: unknown) => {
+    }).catch((err: unknown) => {
+      // Limpia la caché si falla para que el siguiente intento no quede encolado eternamente
       dbPromise = null;
       throw err;
     });
@@ -106,13 +123,15 @@ export function getDB(): Promise<IDBPDatabase<ComicDBSchema>> {
 
   return dbPromise;
 }
-
 /* ==========================================================================
    CRUD Y OPERACIONES DE CÓMICS
    ========================================================================== */
 
 export async function saveComic(comic: ComicRecord): Promise<void> {
   const db = await getDB();
+  if (!comic.updatedAt) {
+    comic.updatedAt = Date.now();
+  }
   await db.put("comics", comic);
 }
 
@@ -124,7 +143,7 @@ export async function getComicById(id: string): Promise<ComicRecord | undefined>
 export async function getAllComics(): Promise<ComicRecord[]> {
   try {
     const db = await getDB();
-    const comics = await withTimeout(db.getAllFromIndex("comics", "by-date"), 3000);
+    const comics = await db.getAllFromIndex("comics", "by-date");
     return comics || [];
   } catch (error) {
     console.error("[IndexedDB] Error al obtener todos los cómics o timeout:", error);
@@ -144,14 +163,15 @@ export async function updateProgress(id: string, currentPage: number): Promise<v
   const comic = await store.get(id);
 
   if (comic) {
+    const now = Date.now();
     comic.currentPage = currentPage;
-    comic.lastReadAt = Date.now();
+    comic.lastReadAt = now;
+    comic.updatedAt = now;
     await store.put(comic);
   }
   await tx.done;
 }
 
-// Alias de compatibilidad
 export const updateComicCurrentPage = updateProgress;
 
 export async function updateComicFilters(
@@ -177,12 +197,33 @@ export async function toggleFavorite(id: string): Promise<boolean> {
   const comic = await store.get(id);
 
   if (comic) {
+    const now = Date.now();
     comic.isFavorite = !comic.isFavorite;
+    comic.updatedAt = now;
     await store.put(comic);
     await tx.done;
     return comic.isFavorite;
   }
   return false;
+}
+
+/* ==========================================================================
+   COLA DE MUTACIONES OFFLINE (SYNC QUEUE)
+   ========================================================================== */
+
+export async function enqueueSync(item: Omit<PendingSyncItem, "id">): Promise<void> {
+  const db = await getDB();
+  await db.add("sync_queue", item as PendingSyncItem);
+}
+
+export async function getPendingSyncItems(): Promise<PendingSyncItem[]> {
+  const db = await getDB();
+  return db.getAll("sync_queue");
+}
+
+export async function clearSyncQueue(): Promise<void> {
+  const db = await getDB();
+  await db.clear("sync_queue");
 }
 
 /* ==========================================================================
