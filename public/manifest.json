@@ -1,5 +1,5 @@
 {
-  "name": "Comic Reader BYOD",
+  "name": "Lector Comic Skull",
   "short_name": "ComicReader",
   "description": "Lector de cómics offline con soporte OPDS y Cloudflare",
   "start_url": "/",
